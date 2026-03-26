@@ -8,9 +8,6 @@ pub enum Command {
         #[structopt(parse(from_os_str))]
         source: PathBuf,
 
-        #[structopt(parse(from_os_str))]
-        zip_dir: Option<PathBuf>,
-
         #[structopt(short, long)]
         user_agent: Option<String>,
 
@@ -21,13 +18,7 @@ pub enum Command {
         #[structopt(parse(from_os_str))]
         source: PathBuf,
 
-        #[structopt(parse(from_os_str))]
-        zip_dir: Option<PathBuf>,
-
-        #[structopt(parse(from_os_str))]
-        jsonl_dir: Option<PathBuf>,
-
-        #[structopt(parse(from_os_str))]
+        #[structopt(long, parse(from_os_str))]
         linguist_path: Option<PathBuf>,
 
         #[structopt(long)]

@@ -69,7 +69,9 @@ async fn download_repo_zip(
 
     // Check the checksum between content (Bytes) and the file in disk
     if tokio::fs::try_exists(&filepath).await.unwrap_or(false)
-        && are_equal(content.clone(), &filepath_str).await.is_ok_and(|r| r)
+        && are_equal(content.clone(), &filepath_str)
+            .await
+            .is_ok_and(|r| r)
     {
         return Ok(filepath);
     }
@@ -94,28 +96,29 @@ pub async fn download_repos(
     let futures = futures::stream::iter(uris.into_iter().map(move |(user, repo)| {
         let zip_dir = zip_dir.clone();
         async move {
-        let result = async {
-            match download_repo_zip(&user, &repo, "main", &zip_dir).await {
-                Ok(path) => Ok(path),
-                Err(_) => {
-                    sleep(Duration::from_secs(1)).await;
-                    download_repo_zip(&user, &repo, "master", &zip_dir).await
+            let result = async {
+                match download_repo_zip(&user, &repo, "main", &zip_dir).await {
+                    Ok(path) => Ok(path),
+                    Err(_) => {
+                        sleep(Duration::from_secs(1)).await;
+                        download_repo_zip(&user, &repo, "master", &zip_dir).await
+                    }
+                }
+            }
+            .await;
+
+            match result {
+                Ok(path) => {
+                    println!("\t{}:  {}/{}", "Downloaded".green(), user, repo);
+                    Ok(path)
+                }
+                Err(e) => {
+                    println!("\t{}:  {}", "Error".red(), e);
+                    Err(e)
                 }
             }
         }
-        .await;
-
-        match result {
-            Ok(path) => {
-                println!("\t{}:  {}/{}", "Downloaded".green(), user, repo);
-                Ok(path)
-            }
-            Err(e) => {
-                println!("\t{}:  {}", "Error".red(), e);
-                Err(e)
-            }
-        }
-    }}))
+    }))
     .buffer_unordered(workers)
     .collect::<Vec<_>>()
     .await;

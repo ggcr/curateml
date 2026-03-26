@@ -2,6 +2,23 @@ use std::path::PathBuf;
 
 use crate::cli;
 
+fn project_root() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+}
+
+fn source_name(source: &PathBuf) -> Option<String> {
+    source
+        .file_stem()
+        .map(|name| name.to_string_lossy().into_owned())
+}
+
+fn derived_source_dir(base_dir: &str, source: &PathBuf) -> PathBuf {
+    match source_name(source) {
+        Some(name) => project_root().join(base_dir).join(name),
+        None => project_root().join(base_dir),
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct DownloadConfig {
     pub source: PathBuf,
@@ -30,10 +47,9 @@ pub struct DedupeConfig {
 
 impl Default for DownloadConfig {
     fn default() -> Self {
-        let project_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         Self {
-            source: project_root.join("config/example.jsonl"),
-            zip_dir: project_root.join("zip"),
+            source: project_root().join("config/example.jsonl"),
+            zip_dir: project_root().join("zip"),
             user_agent: "CodeCurator".to_string(),
             workers: 16,
         }
@@ -45,20 +61,12 @@ impl DownloadConfig {
         let mut config = DownloadConfig::default();
         if let cli::Command::Download {
             source,
-            zip_dir,
             user_agent,
             workers,
         } = opts_cmd
         {
-            let project_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
             config.source = source.to_owned();
-            if let Some(name) = source.file_stem() {
-                let name = name.to_string_lossy();
-                config.zip_dir = project_root.join(format!("zip/{name}")).to_owned();
-            }
-            if let Some(z) = zip_dir {
-                config.zip_dir = z.to_owned();
-            }
+            config.zip_dir = derived_source_dir("zip", source);
             if let Some(u) = user_agent {
                 config.user_agent = u.to_owned();
             }
@@ -73,10 +81,10 @@ impl DownloadConfig {
 impl Default for ExtractionConfig {
     fn default() -> Self {
         Self {
-            source: PathBuf::from("./config/repos.jsonl"),
-            zip_dir: PathBuf::from("./zip"),
-            jsonl_dir: PathBuf::from("./jsonl"),
-            linguist_path: PathBuf::from("./vendor/languages.yml"),
+            source: project_root().join("config/repos.jsonl"),
+            zip_dir: project_root().join("zip"),
+            jsonl_dir: project_root().join("jsonl"),
+            linguist_path: project_root().join("vendor/languages.yml"),
             max_file_size: 2u64.pow(17), // 128KB
             languages: None,             // None, Empty, will grab all files
         }
@@ -88,20 +96,14 @@ impl ExtractionConfig {
         let mut config = ExtractionConfig::default();
         if let cli::Command::Extract {
             source,
-            zip_dir,
-            jsonl_dir,
             linguist_path,
             max_file_size,
             languages,
         } = opts_cmd
         {
             config.source = source.to_owned();
-            if let Some(z) = zip_dir {
-                config.zip_dir = z.to_owned();
-            }
-            if let Some(j) = jsonl_dir {
-                config.jsonl_dir = j.to_owned();
-            }
+            config.zip_dir = derived_source_dir("zip", source);
+            config.jsonl_dir = derived_source_dir("jsonl", source);
             if let Some(l) = linguist_path {
                 config.linguist_path = l.to_owned();
             }
@@ -111,6 +113,45 @@ impl ExtractionConfig {
             config.languages = languages.to_owned();
         }
         config
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{DownloadConfig, ExtractionConfig, project_root};
+    use crate::cli::Command;
+    use std::path::PathBuf;
+
+    #[test]
+    fn download_uses_source_stem_for_zip_dir() {
+        let cmd = Command::Download {
+            source: PathBuf::from("sources/tt09.jsonl"),
+            user_agent: None,
+            workers: None,
+        };
+
+        let config = DownloadConfig::from_cli(&cmd);
+
+        assert_eq!(config.zip_dir, project_root().join("zip/tt09"));
+    }
+
+    #[test]
+    fn extract_uses_source_stem_for_zip_and_jsonl_dirs() {
+        let cmd = Command::Extract {
+            source: PathBuf::from("sources/tt09.jsonl"),
+            linguist_path: None,
+            max_file_size: None,
+            languages: None,
+        };
+
+        let config = ExtractionConfig::from_cli(&cmd);
+
+        assert_eq!(config.zip_dir, project_root().join("zip/tt09"));
+        assert_eq!(config.jsonl_dir, project_root().join("jsonl/tt09"));
+        assert_eq!(
+            config.linguist_path,
+            project_root().join("vendor/languages.yml")
+        );
     }
 }
 

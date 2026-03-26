@@ -122,7 +122,7 @@ fn process_valid_file(
 fn extract_zip(
     zip: &mut ZipArchive<BufReader<File>>,
     name: &str,
-    file_types: &HashMap<String, String>,
+    _file_types: &HashMap<String, String>,
     dest_dir: &Path,
     tokenizer: &Tokenizer,
 ) -> Result<i64, ExtractionError> {
@@ -133,9 +133,9 @@ fn extract_zip(
         let Some(ext) = parse_ext(&file) else {
             continue;
         };
-        if file.is_file()
-                && file.size() <= 2u64.pow(17) // 128KB
-                // && file_types.contains_key(&ext)
+        if file.is_file() && file.size() <= 2u64.pow(17)
+        // 128KB
+        // && file_types.contains_key(&ext)
         {
             // Parse file
             let r = match process_valid_file(&mut file, tokenizer, ext) {
@@ -211,7 +211,6 @@ pub fn extract_text(
 #[cfg(test)]
 mod tests {
     use crate::extractor::Record;
-
 
     #[test]
     fn test_parse_ext() {

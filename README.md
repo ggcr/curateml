@@ -38,14 +38,14 @@ Create an input file with one GitHub repository per line:
 codecurator download ./configs/repos.jsonl
 ```
 
-This creates ZIP files in `/zip/` directory. Downloads from `main` branch first, falls back to `master` if needed.
+This creates ZIP files in `./zip/repos/`. Downloads from `main` branch first, falls back to `master` if needed.
 
 **Extract and process:**
 ```bash
 codecurator extract ./configs/repos.jsonl --languages Python Rust Verilog
 ```
 
-Processes all programming files, tokenizes content, and outputs structured data to `/jsonl/` directory.
+Processes all programming files from `./zip/repos/`, tokenizes content, and outputs structured data to `./jsonl/repos/`.
 
 **Deduplication:**
 ```bash
@@ -63,4 +63,3 @@ Total tokens: 346574283
 ```
 
 ![Visitors](https://visitor-badge.laobi.icu/badge?page_id=ggcr.codecurator)
-
