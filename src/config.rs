@@ -1,9 +1,13 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use crate::cli;
 
-fn project_root() -> PathBuf {
+fn bundled_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+}
+
+fn invocation_root() -> PathBuf {
+    std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
 }
 
 fn source_name(source: &PathBuf) -> Option<String> {
@@ -12,11 +16,15 @@ fn source_name(source: &PathBuf) -> Option<String> {
         .map(|name| name.to_string_lossy().into_owned())
 }
 
-fn derived_source_dir(base_dir: &str, source: &PathBuf) -> PathBuf {
+fn derived_source_dir_from(root: &Path, base_dir: &str, source: &PathBuf) -> PathBuf {
     match source_name(source) {
-        Some(name) => project_root().join(base_dir).join(name),
-        None => project_root().join(base_dir),
+        Some(name) => root.join(base_dir).join(name),
+        None => root.join(base_dir),
     }
+}
+
+fn derived_source_dir(base_dir: &str, source: &PathBuf) -> PathBuf {
+    derived_source_dir_from(&invocation_root(), base_dir, source)
 }
 
 #[derive(Debug, Clone)]
@@ -48,8 +56,8 @@ pub struct DedupeConfig {
 impl Default for DownloadConfig {
     fn default() -> Self {
         Self {
-            source: project_root().join("config/example.jsonl"),
-            zip_dir: project_root().join("zip"),
+            source: bundled_root().join("config/example.jsonl"),
+            zip_dir: invocation_root().join("zip"),
             user_agent: "CodeCurator".to_string(),
             workers: 16,
         }
@@ -81,10 +89,10 @@ impl DownloadConfig {
 impl Default for ExtractionConfig {
     fn default() -> Self {
         Self {
-            source: project_root().join("config/repos.jsonl"),
-            zip_dir: project_root().join("zip"),
-            jsonl_dir: project_root().join("jsonl"),
-            linguist_path: project_root().join("vendor/languages.yml"),
+            source: bundled_root().join("config/repos.jsonl"),
+            zip_dir: invocation_root().join("zip"),
+            jsonl_dir: invocation_root().join("jsonl"),
+            linguist_path: bundled_root().join("vendor/languages.yml"),
             max_file_size: 2u64.pow(17), // 128KB
             languages: None,             // None, Empty, will grab all files
         }
@@ -118,9 +126,9 @@ impl ExtractionConfig {
 
 #[cfg(test)]
 mod tests {
-    use super::{DownloadConfig, ExtractionConfig, project_root};
+    use super::{DownloadConfig, ExtractionConfig, bundled_root, derived_source_dir_from};
     use crate::cli::Command;
-    use std::path::PathBuf;
+    use std::path::{Path, PathBuf};
 
     #[test]
     fn download_uses_source_stem_for_zip_dir() {
@@ -129,10 +137,14 @@ mod tests {
             user_agent: None,
             workers: None,
         };
+        let cwd = std::env::current_dir().unwrap();
 
         let config = DownloadConfig::from_cli(&cmd);
 
-        assert_eq!(config.zip_dir, project_root().join("zip/tt09"));
+        assert_eq!(
+            config.zip_dir,
+            derived_source_dir_from(&cwd, "zip", &PathBuf::from("sources/tt09.jsonl"))
+        );
     }
 
     #[test]
@@ -143,14 +155,32 @@ mod tests {
             max_file_size: None,
             languages: None,
         };
+        let cwd = std::env::current_dir().unwrap();
 
         let config = ExtractionConfig::from_cli(&cmd);
 
-        assert_eq!(config.zip_dir, project_root().join("zip/tt09"));
-        assert_eq!(config.jsonl_dir, project_root().join("jsonl/tt09"));
+        assert_eq!(
+            config.zip_dir,
+            derived_source_dir_from(&cwd, "zip", &PathBuf::from("sources/tt09.jsonl"))
+        );
+        assert_eq!(
+            config.jsonl_dir,
+            derived_source_dir_from(&cwd, "jsonl", &PathBuf::from("sources/tt09.jsonl"))
+        );
         assert_eq!(
             config.linguist_path,
-            project_root().join("vendor/languages.yml")
+            bundled_root().join("vendor/languages.yml")
+        );
+    }
+
+    #[test]
+    fn derived_source_dir_uses_invocation_root() {
+        let root = Path::new("/tmp/invocation-root");
+        let source = PathBuf::from("nested/tt09.jsonl");
+
+        assert_eq!(
+            derived_source_dir_from(root, "zip", &source),
+            root.join("zip/tt09")
         );
     }
 }
