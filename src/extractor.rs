@@ -28,13 +28,9 @@ pub struct Record {
 }
 
 fn parse_ext(file: &zip::read::ZipFile<'_, BufReader<fs::File>>) -> Option<String> {
-    let split_ext: Vec<&str> = file.name().splitn(2, ".").collect();
-    if split_ext.len() == 2 {
-        let mut ext = split_ext.last()?.to_string();
-        ext.insert(0, '.');
-        return Some(ext);
-    }
-    None
+    let path = file.enclosed_name()?;
+    let ext = path.extension()?.to_str()?;
+    Some(format!(".{ext}"))
 }
 
 fn get_zip_name(zip_path: &Path) -> Option<&str> {
@@ -122,7 +118,7 @@ fn process_valid_file(
 fn extract_zip(
     zip: &mut ZipArchive<BufReader<File>>,
     name: &str,
-    _file_types: &HashMap<String, String>,
+    file_types: &HashMap<String, String>,
     dest_dir: &Path,
     tokenizer: &Tokenizer,
 ) -> Result<i64, ExtractionError> {
@@ -133,10 +129,7 @@ fn extract_zip(
         let Some(ext) = parse_ext(&file) else {
             continue;
         };
-        if file.is_file() && file.size() <= 2u64.pow(17)
-        // 128KB
-        // && file_types.contains_key(&ext)
-        {
+        if file.is_file() && file.size() <= 2u64.pow(17) && file_types.contains_key(&ext) {
             // Parse file
             let r = match process_valid_file(&mut file, tokenizer, ext) {
                 Ok(r) => r,
@@ -211,12 +204,21 @@ pub fn extract_text(
 #[cfg(test)]
 mod tests {
     use crate::extractor::Record;
+    use std::path::Path;
 
     #[test]
-    fn test_parse_ext() {
-        // Create a mock ZipFile somehow, or test the logic
-        // This might be tricky with ZipFile, so consider refactoring
-        // to extract the logic into a testable function
+    fn path_extension_extracts_last_suffix() {
+        let path = Path::new("rtl/foo.test.sv");
+        assert_eq!(
+            path.extension().and_then(|ext| ext.to_str()),
+            Some("sv")
+        );
+    }
+
+    #[test]
+    fn path_extension_ignores_dotfiles_without_a_real_suffix() {
+        let path = Path::new(".gitignore");
+        assert_eq!(path.extension().and_then(|ext| ext.to_str()), None);
     }
 
     #[test]
