@@ -2,15 +2,7 @@
 
 An end-to-end tool for curating GitHub repositories into structured code datasets.
 
-- **Fast parallel processing** - Download and extract with configurable workers
-- **Smart filtering** - Only processes programming files using GitHub Linguist
-- **GPT-2 tokenization** - Ready-to-use token counts for ML workflows
-- **Efficient caching** - Uses ETags to avoid re-downloading unchanged repos
-
-Perfect for curating training data, running code analysis, or creating repository archives.
-
-
-### Installation
+### Install
 
 ```bash
 cargo install --path .
